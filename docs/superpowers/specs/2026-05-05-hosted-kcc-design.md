@@ -24,7 +24,8 @@ Synology success criteria:
 - Users can mount the reader/library destination writable into `/output`.
 - Users can mount persistent app state into `/data`.
 - Users can mount a writable config directory into `/config`.
-- Users can configure the first run entirely through environment variables in Synology Container Manager or Compose.
+- Users can start with only volume mounts when the standard container paths are acceptable.
+- Users can configure the first run entirely through environment variables in Synology Container Manager or Compose when they need non-default behavior.
 - On first run, the service writes `/config/config.toml` into the mounted config volume.
 - On later runs, `/config/config.toml` is the durable source of truth unless explicit environment overrides are supplied.
 - The container runs continuously and replaces a scheduled cron script.
@@ -41,8 +42,6 @@ services:
     restart: unless-stopped
     user: "1024:100"
     environment:
-      HOSTED_KCC_INPUT_ROOTS: /input
-      HOSTED_KCC_OUTPUT_ROOT: /output
       HOSTED_KCC_CUSTOM_WIDTH: "824"
       HOSTED_KCC_CUSTOM_HEIGHT: "1648"
       HOSTED_KCC_MANGA_STYLE: "true"
@@ -162,7 +161,15 @@ When `/config/config.toml` does not exist, the app writes the fully resolved con
 
 If `/config/config.toml` exists and environment variables are also supplied, environment values override the file for that run. The app should log that overrides were applied. To avoid surprising edits, it should not rewrite an existing config file unless a future explicit command or setting requests it.
 
-Environment variable names use the `HOSTED_KCC_` prefix:
+The default container paths should work without environment variables:
+
+- input roots: `/input`
+- output root: `/output`
+- config file: `/config/config.toml`
+- work root: `/data/work`
+- database: `/data/hosted-kcc.sqlite3`
+
+Environment variable names use the `HOSTED_KCC_` prefix and are optional overrides:
 
 ```text
 HOSTED_KCC_INPUT_ROOTS=/input
@@ -305,7 +312,8 @@ Integration tests:
 
 Manual deployment test:
 
-- run via Docker Compose with Synology-like bind mount paths and only environment-variable settings
+- run via Docker Compose with Synology-like bind mount paths and no required environment variables
+- run a second Compose scenario with environment-variable overrides
 - confirm `/config/config.toml` is generated on first start
 - drop a CBZ into `/input`
 - confirm the converted file appears under `/output` with the same relative path
