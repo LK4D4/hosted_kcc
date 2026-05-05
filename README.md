@@ -36,6 +36,8 @@ The service defaults to:
 - high quality: enabled
 - size: `824x1648`
 
+The Dockerfile pins the upstream KCC base image by digest for repeatable builds. To test another KCC release or architecture, override `KCC_BASE_IMAGE` at build time.
+
 ## Safety Model
 
 Sources are intended to be mounted read-only. With the default `overwrite = false`, hosted-kcc skips any output file that already exists, even when the job database has no prior record for it. Set `HOSTED_KCC_OVERWRITE=true` or `overwrite = true` only when you want changed sources to replace existing converted files.
