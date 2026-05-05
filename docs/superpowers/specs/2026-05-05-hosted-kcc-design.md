@@ -29,6 +29,7 @@ Synology success criteria:
 - On first run, the service writes `/config/config.toml` into the mounted config volume.
 - On later runs, `/config/config.toml` is the durable source of truth unless explicit environment overrides are supplied.
 - The container runs continuously and replaces a scheduled cron script.
+- The service can run side by side with Suwayomi Server and feed converted files into Suwayomi's Local Source folder.
 - Logs are useful from Container Manager's log viewer.
 - The default example maps cleanly to common Synology paths such as `/volume1/data/media/manga/mangas` and `/volume1/docker/suwayomi/local`.
 
@@ -52,6 +53,78 @@ services:
       - /volume1/data/media/manga/mangas:/input:ro
       - /volume1/docker/suwayomi/local:/output
 ```
+
+## Suwayomi Side-By-Side Deployment
+
+A common target deployment is Suwayomi Server plus `hosted-kcc` in the same Compose project. Suwayomi downloads manga into its Tachidesk downloads directory, and `hosted-kcc` watches the `mangas` download subdirectory read-only, converts chapters, and writes the optimized files into Suwayomi's Local Source folder.
+
+Suwayomi's Local Source expects a manga folder with chapter archives inside it, such as `local/Manga title/ch1.cbz`. Because Suwayomi downloads usually include a source/catalog folder before the manga title, `hosted-kcc` should provide a built-in `suwayomi_local` output mode that maps:
+
+```text
+/input/<source>/<series>/<chapter>.cbz
+/output/<series>/<chapter>.cbz
+```
+
+Example based on a Synology layout:
+
+```yaml
+version: "3.8"
+
+services:
+  suwayomi:
+    image: ghcr.io/suwayomi/suwayomi-server:stable
+    container_name: suwayomi
+    user: "1027:65536"
+    environment:
+      TZ: Europe/Zurich
+      AUTH_MODE: basic_auth
+      AUTH_USERNAME: user
+      AUTH_PASSWORD: password
+    volumes:
+      - /volume1/data/media/manga:/home/suwayomi/.local/share/Tachidesk/downloads
+      - /volume1/docker/suwayomi:/home/suwayomi/.local/share/Tachidesk
+    ports:
+      - "4567:4567"
+    network_mode: synobridge
+    security_opt:
+      - no-new-privileges:true
+    restart: always
+
+  hosted-kcc:
+    image: hosted-kcc:latest
+    container_name: hosted-kcc
+    user: "1027:65536"
+    environment:
+      TZ: Europe/Zurich
+      HOSTED_KCC_CUSTOM_WIDTH: "824"
+      HOSTED_KCC_CUSTOM_HEIGHT: "1648"
+      HOSTED_KCC_MANGA_STYLE: "true"
+      HOSTED_KCC_HQ: "true"
+      HOSTED_KCC_OUTPUT_MODE: suwayomi_local
+    volumes:
+      - /volume1/docker/hosted-kcc/config:/config
+      - /volume1/docker/hosted-kcc/data:/data
+      - /volume1/data/media/manga/mangas:/input:ro
+      - /volume1/docker/suwayomi/local:/output
+    network_mode: synobridge
+    security_opt:
+      - no-new-privileges:true
+    restart: always
+```
+
+With `HOSTED_KCC_OUTPUT_MODE=suwayomi_local`, if Suwayomi downloads a chapter to:
+
+```text
+/volume1/data/media/manga/mangas/<source>/<series>/<chapter>.cbz
+```
+
+then `hosted-kcc` writes:
+
+```text
+/volume1/docker/suwayomi/local/<series>/<chapter>.cbz
+```
+
+The MVP default remains mirrored hierarchy for general compatibility. The Suwayomi example opts into `suwayomi_local` because that matches Suwayomi Local Source's required structure and the original cron script's behavior.
 
 ## Architecture
 
@@ -87,7 +160,7 @@ Scanning uses polling by default. Polling is preferred for NAS, SMB, and NFS mou
 
 ## Output Mapping
 
-Output paths mirror the relative path from the matched input root.
+Output paths mirror the relative path from the matched input root by default.
 
 Example:
 
@@ -99,6 +172,8 @@ Example:
 The output extension follows the configured KCC output format. For example, `format: CBZ` produces `.cbz`; `format: EPUB` produces `.epub` or KCC's native extension behavior where applicable.
 
 The source file remains in place. The service skips conversion when the expected output already exists and the stored source fingerprint still matches.
+
+The MVP also includes `output.mode = "suwayomi_local"` for the Suwayomi integration. This mode expects relative paths shaped like `<source>/<series>/<chapter>` and writes `<series>/<chapter>` under the output root. If the input path does not have at least three path segments, the job should fail validation with a clear message rather than producing a surprising output path.
 
 ## Job Lifecycle
 
@@ -186,7 +261,7 @@ HOSTED_KCC_PROFILE=
 HOSTED_KCC_CUSTOM_WIDTH=824
 HOSTED_KCC_CUSTOM_HEIGHT=1648
 HOSTED_KCC_EXTRA_ARGS=
-HOSTED_KCC_MIRROR_HIERARCHY=true
+HOSTED_KCC_OUTPUT_MODE=mirror
 HOSTED_KCC_OVERWRITE=false
 HOSTED_KCC_SOURCE_POLICY=keep
 HOSTED_KCC_LOG_LEVEL=info
@@ -219,7 +294,7 @@ custom_height = 1648
 extra_args = []
 
 [output]
-mirror_hierarchy = true
+mode = "mirror"
 overwrite = false
 source_policy = "keep"
 
@@ -295,6 +370,7 @@ Unit tests:
 - first-run config generation from environment variables
 - config file plus environment override resolution
 - mirrored path calculation
+- Suwayomi Local Source output mapping
 - output extension handling
 - source fingerprint comparison
 - stability detection
@@ -307,6 +383,7 @@ Integration tests:
 - use temporary input/output/data directories
 - use a fake `kcc-c2e` executable to simulate success/failure
 - verify output is moved only after success
+- verify `suwayomi_local` drops the source/catalog segment and preserves series/chapter
 - verify failed jobs are persisted
 - verify changed source files can be retried
 
