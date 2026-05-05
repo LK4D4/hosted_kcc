@@ -59,6 +59,11 @@ def scan_once(
             logger.info("skipping already converted file: %s", source_path)
             result = _add(result, skipped=1)
             continue
+        if not cfg.output.overwrite and plan.output_path.exists():
+            store.mark_skipped(job.id)
+            logger.info("skipping existing output file: %s", plan.output_path)
+            result = _add(result, skipped=1)
+            continue
 
         logger.info("converting %s -> %s", source_path, plan.output_path)
         store.mark_running(job.id)

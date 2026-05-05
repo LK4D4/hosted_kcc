@@ -38,6 +38,23 @@ def test_scan_once_skips_existing_successful_output(tmp_path):
     assert result == ServiceResult(discovered=1, converted=0, skipped=1, failed=0)
 
 
+def test_scan_once_skips_existing_output_without_prior_job_when_overwrite_false(tmp_path):
+    cfg = _config(tmp_path)
+    source = tmp_path / "input" / "Source" / "Series" / "001.cbz"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"chapter")
+    output = tmp_path / "output" / "Source" / "Series" / "001.cbz"
+    output.parent.mkdir(parents=True)
+    output.write_bytes(b"existing-library-file")
+
+    result = scan_once(cfg, kcc_command=["py", str(_write_fake_kcc(tmp_path))])
+    job = JobStore(cfg.paths.database).get_by_source(source)
+
+    assert result == ServiceResult(discovered=1, converted=0, skipped=1, failed=0)
+    assert output.read_bytes() == b"existing-library-file"
+    assert job.status == JobStatus.SKIPPED
+
+
 def test_scan_once_records_failed_conversion(tmp_path):
     cfg = _config(tmp_path)
     source = tmp_path / "input" / "Source" / "Series" / "001.cbz"
@@ -52,8 +69,23 @@ def test_scan_once_records_failed_conversion(tmp_path):
     assert "fake failure" in job.stderr_tail
 
 
-def test_scan_once_retries_changed_source_after_success(tmp_path):
+def test_scan_once_skips_changed_source_when_output_exists_and_overwrite_false(tmp_path):
     cfg = _config(tmp_path)
+    source = tmp_path / "input" / "Source" / "Series" / "001.cbz"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"chapter")
+    fake_kcc = _write_fake_kcc(tmp_path)
+
+    first = scan_once(cfg, kcc_command=["py", str(fake_kcc)])
+    source.write_bytes(b"changed")
+    second = scan_once(cfg, kcc_command=["py", str(fake_kcc)])
+
+    assert first.converted == 1
+    assert second == ServiceResult(discovered=1, converted=0, skipped=1, failed=0)
+
+
+def test_scan_once_retries_changed_source_when_overwrite_true(tmp_path):
+    cfg = _config(tmp_path, overwrite=True)
     source = tmp_path / "input" / "Source" / "Series" / "001.cbz"
     source.parent.mkdir(parents=True)
     source.write_bytes(b"chapter")
@@ -79,7 +111,12 @@ def test_scan_once_waits_for_unstable_file(tmp_path):
     assert not (tmp_path / "output" / "Source" / "Series" / "001.cbz").exists()
 
 
-def _config(tmp_path: Path, output_mode: str = "mirror", stability_seconds: int = 0):
+def _config(
+    tmp_path: Path,
+    output_mode: str = "mirror",
+    stability_seconds: int = 0,
+    overwrite: bool = False,
+):
     cfg = default_config()
     return replace(
         cfg,
@@ -91,5 +128,5 @@ def _config(tmp_path: Path, output_mode: str = "mirror", stability_seconds: int 
             work_root=tmp_path / "work",
             database=tmp_path / "data" / "jobs.sqlite3",
         ),
-        output=replace(cfg.output, mode=output_mode),
+        output=replace(cfg.output, mode=output_mode, overwrite=overwrite),
     )
