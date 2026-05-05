@@ -1,6 +1,7 @@
 import errno
 import os
 import stat
+import sys
 import textwrap
 from pathlib import Path
 
@@ -98,7 +99,7 @@ def test_converter_moves_fake_kcc_output_only_after_success(tmp_path):
         output_mode="suwayomi_local",
         output_format="CBZ",
     )
-    converter = Converter(kcc_command=["py", str(fake_kcc)])
+    converter = Converter(kcc_command=[sys.executable, str(fake_kcc)])
 
     result = converter.convert(plan, ConversionConfig(), work_root)
 
@@ -119,7 +120,7 @@ def test_converter_leaves_no_final_output_when_kcc_fails(tmp_path):
         output_mode="mirror",
         output_format="CBZ",
     )
-    converter = Converter(kcc_command=["py", str(fake_kcc)])
+    converter = Converter(kcc_command=[sys.executable, str(fake_kcc)])
 
     result = converter.convert(plan, ConversionConfig(), tmp_path / "work")
 
@@ -148,7 +149,7 @@ def test_converter_handles_cross_device_output_move(tmp_path, monkeypatch):
         return original_replace(self, target)
 
     monkeypatch.setattr(Path, "replace", fake_replace)
-    converter = Converter(kcc_command=["py", str(fake_kcc)])
+    converter = Converter(kcc_command=[sys.executable, str(fake_kcc)])
 
     result = converter.convert(plan, ConversionConfig(), tmp_path / "work")
 
@@ -169,7 +170,7 @@ def test_converter_passes_working_copy_to_kcc(tmp_path):
         output_format="CBZ",
     )
     work_root = tmp_path / "work"
-    converter = Converter(kcc_command=["py", str(fake_kcc)])
+    converter = Converter(kcc_command=[sys.executable, str(fake_kcc)])
 
     result = converter.convert(plan, ConversionConfig(), work_root)
 
