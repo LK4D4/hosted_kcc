@@ -4,7 +4,7 @@
 
 Build a Dockerized watched-folder service for Kindle Comic Converter (KCC) that can replace a Synology cron script. The service watches mounted manga/comic folders, converts new files with KCC, and writes optimized output into a mirrored output tree. It should be usable from Synology Container Manager with bind mounts and environment/config files, without requiring shell cron, Docker socket access, or manual per-file commands.
 
-The first release is automation-first and TOML config-file driven. A Web UI is intentionally deferred until the conversion core is stable.
+The first release is automation-first and can be configured entirely from Docker/Container Manager environment variables on first run. The service writes the resolved settings into a durable TOML config file so users can inspect or edit it later. A Web UI is intentionally deferred until the conversion core is stable.
 
 ## Non-Goals For MVP
 
@@ -23,7 +23,10 @@ Synology success criteria:
 - Users can mount manga/download folders read-only into `/input`.
 - Users can mount the reader/library destination writable into `/output`.
 - Users can mount persistent app state into `/data`.
-- Users can mount `config.toml` read-only into `/config/config.toml`.
+- Users can mount a writable config directory into `/config`.
+- Users can configure the first run entirely through environment variables in Synology Container Manager or Compose.
+- On first run, the service writes `/config/config.toml` into the mounted config volume.
+- On later runs, `/config/config.toml` is the durable source of truth unless explicit environment overrides are supplied.
 - The container runs continuously and replaces a scheduled cron script.
 - Logs are useful from Container Manager's log viewer.
 - The default example maps cleanly to common Synology paths such as `/volume1/data/media/manga/mangas` and `/volume1/docker/suwayomi/local`.
@@ -37,8 +40,15 @@ services:
     container_name: hosted-kcc
     restart: unless-stopped
     user: "1024:100"
+    environment:
+      HOSTED_KCC_INPUT_ROOTS: /input
+      HOSTED_KCC_OUTPUT_ROOT: /output
+      HOSTED_KCC_CUSTOM_WIDTH: "824"
+      HOSTED_KCC_CUSTOM_HEIGHT: "1648"
+      HOSTED_KCC_MANGA_STYLE: "true"
+      HOSTED_KCC_HQ: "true"
     volumes:
-      - ./config.toml:/config/config.toml:ro
+      - ./config:/config
       - ./data:/data
       - /volume1/data/media/manga/mangas:/input:ro
       - /volume1/docker/suwayomi/local:/output
@@ -50,7 +60,7 @@ Use a single Python service image that includes the application and a pinned KCC
 
 Main components:
 
-- `Config`: loads and validates `/config/config.toml`.
+- `Config`: loads environment variables and `/config/config.toml`, validates the resolved settings, and writes a first-run TOML config when missing.
 - `Scanner`: periodically discovers supported input files.
 - `Planner`: maps source files to mirrored output destinations and conversion settings.
 - `JobStore`: persists job state and fingerprints in SQLite.
@@ -135,9 +145,50 @@ kcc-c2e --customwidth 824 --customheight 1648 -f CBZ --manga-style --hq -o <outp
 
 The app should support common KCC settings directly and preserve an `extra_args` escape hatch for advanced users.
 
-## Config
+## Configuration
 
-Initial config example:
+The MVP supports two configuration surfaces:
+
+- **First-run environment variables:** friendly for Synology Container Manager and Compose users who do not want to create files manually.
+- **Durable TOML file:** written to `/config/config.toml` after first run and used for future starts.
+
+Resolution order:
+
+1. Built-in defaults.
+2. Existing `/config/config.toml`, if present.
+3. Environment variables, if present.
+
+When `/config/config.toml` does not exist, the app writes the fully resolved configuration there before starting the scanner. This gives non-power users a working first run from Container Manager alone, while still leaving a readable config file in the mounted config volume.
+
+If `/config/config.toml` exists and environment variables are also supplied, environment values override the file for that run. The app should log that overrides were applied. To avoid surprising edits, it should not rewrite an existing config file unless a future explicit command or setting requests it.
+
+Environment variable names use the `HOSTED_KCC_` prefix:
+
+```text
+HOSTED_KCC_INPUT_ROOTS=/input
+HOSTED_KCC_OUTPUT_ROOT=/output
+HOSTED_KCC_WORK_ROOT=/data/work
+HOSTED_KCC_DATABASE=/data/hosted-kcc.sqlite3
+HOSTED_KCC_SCAN_INTERVAL_SECONDS=60
+HOSTED_KCC_STABILITY_SECONDS=60
+HOSTED_KCC_WORKERS=1
+HOSTED_KCC_FORMAT=CBZ
+HOSTED_KCC_MANGA_STYLE=true
+HOSTED_KCC_HQ=true
+HOSTED_KCC_PROFILE=
+HOSTED_KCC_CUSTOM_WIDTH=824
+HOSTED_KCC_CUSTOM_HEIGHT=1648
+HOSTED_KCC_EXTRA_ARGS=
+HOSTED_KCC_MIRROR_HIERARCHY=true
+HOSTED_KCC_OVERWRITE=false
+HOSTED_KCC_SOURCE_POLICY=keep
+HOSTED_KCC_LOG_LEVEL=info
+```
+
+`HOSTED_KCC_INPUT_ROOTS` accepts a comma-separated list for multiple mounted input roots.
+`HOSTED_KCC_EXTRA_ARGS` accepts a shell-like string that is parsed into an argument list with standard quoting rules.
+
+Generated `config.toml` example:
 
 ```toml
 [scan]
@@ -181,8 +232,8 @@ The container should:
 
 - run as a non-root user when possible
 - support UID/GID mapping through Docker `user` or environment variables
-- write only to `/data` and `/output`
-- read config from `/config/config.toml`
+- write only to `/data`, `/output`, and `/config/config.toml`
+- read config from environment variables and `/config/config.toml`
 - produce structured, readable logs on stdout
 
 ## Error Handling
@@ -195,8 +246,11 @@ Expected errors:
 - output permission failure
 - output already exists
 - config validation failure
+- unwritable first-run config directory
 
 Config validation errors should stop startup with clear logs. Per-file conversion errors should mark the job failed and allow the service to continue scanning other files.
+
+If `/config/config.toml` is missing and `/config` is not writable, startup should fail with a clear message explaining that the user must either mount `/config` writable or provide a config file.
 
 ## Observability
 
@@ -205,6 +259,7 @@ MVP observability is through logs and SQLite state.
 Logs should include:
 
 - startup config summary with paths and scan interval
+- first-run config generation and environment overrides
 - discovered files
 - skipped files with reason
 - job start and finish
@@ -230,6 +285,8 @@ No MVP component should depend on the UI existing.
 Unit tests:
 
 - config parsing and validation
+- first-run config generation from environment variables
+- config file plus environment override resolution
 - mirrored path calculation
 - output extension handling
 - source fingerprint comparison
@@ -248,7 +305,8 @@ Integration tests:
 
 Manual deployment test:
 
-- run via Docker Compose with Synology-like bind mount paths
+- run via Docker Compose with Synology-like bind mount paths and only environment-variable settings
+- confirm `/config/config.toml` is generated on first start
 - drop a CBZ into `/input`
 - confirm the converted file appears under `/output` with the same relative path
 - restart the container
