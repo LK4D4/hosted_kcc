@@ -128,7 +128,7 @@ The MVP default remains mirrored hierarchy for general compatibility. The Suwayo
 
 ## Architecture
 
-Use a single Python service image that includes the application and a pinned KCC CLI installation. The app calls `kcc-c2e` directly as a subprocess using argument arrays, not shell strings.
+Use a single Python service image that includes the application and a pinned KCC CLI installation. The app calls KCC's `c2e` executable directly as a subprocess using argument arrays, not shell strings.
 
 Main components:
 
@@ -214,7 +214,7 @@ This prevents partial or corrupt outputs from being treated as completed chapter
 The KCC command is built from validated config fields:
 
 ```text
-kcc-c2e --customwidth 824 --customheight 1648 -f CBZ --manga-style --hq -o <output-dir-or-file> <input-file>
+c2e --customwidth 824 --customheight 1648 -f CBZ --manga-style --hq -o <output-dir-or-file> <input-file>
 ```
 
 The app should support common KCC settings directly and preserve an `extra_args` escape hatch for advanced users.
@@ -381,7 +381,7 @@ Unit tests:
 Integration tests:
 
 - use temporary input/output/data directories
-- use a fake `kcc-c2e` executable to simulate success/failure
+- use a fake `c2e` executable to simulate success/failure
 - verify output is moved only after success
 - verify `suwayomi_local` drops the source/catalog segment and preserves series/chapter
 - verify failed jobs are persisted

@@ -1,3 +1,4 @@
+import errno
 import os
 import stat
 import textwrap
@@ -127,7 +128,58 @@ def test_converter_leaves_no_final_output_when_kcc_fails(tmp_path):
     assert not plan.output_path.exists()
 
 
-def _write_fake_kcc(tmp_path: Path, fail: bool = False) -> Path:
+def test_converter_handles_cross_device_output_move(tmp_path, monkeypatch):
+    fake_kcc = _write_fake_kcc(tmp_path)
+    source = tmp_path / "input" / "Source" / "Series" / "001.cbz"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"chapter")
+    plan = plan_output(
+        source_path=source,
+        input_root=tmp_path / "input",
+        output_root=tmp_path / "output",
+        output_mode="mirror",
+        output_format="CBZ",
+    )
+    original_replace = Path.replace
+
+    def fake_replace(self, target):
+        if self.parent.name.startswith("kcc-"):
+            raise OSError(errno.EXDEV, "Invalid cross-device link")
+        return original_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", fake_replace)
+    converter = Converter(kcc_command=["py", str(fake_kcc)])
+
+    result = converter.convert(plan, ConversionConfig(), tmp_path / "work")
+
+    assert result.exit_code == 0
+    assert plan.output_path.read_bytes() == b"converted"
+
+
+def test_converter_passes_working_copy_to_kcc(tmp_path):
+    fake_kcc = _write_fake_kcc(tmp_path, record_source=True)
+    source = tmp_path / "input" / "Source" / "Series" / "001.cbz"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"chapter")
+    plan = plan_output(
+        source_path=source,
+        input_root=tmp_path / "input",
+        output_root=tmp_path / "output",
+        output_mode="mirror",
+        output_format="CBZ",
+    )
+    work_root = tmp_path / "work"
+    converter = Converter(kcc_command=["py", str(fake_kcc)])
+
+    result = converter.convert(plan, ConversionConfig(), work_root)
+
+    assert result.exit_code == 0
+    used_source = plan.output_path.read_text(encoding="utf-8")
+    assert used_source.startswith(str(work_root))
+    assert used_source.endswith("001.cbz")
+
+
+def _write_fake_kcc(tmp_path: Path, fail: bool = False, record_source: bool = False) -> Path:
     script = tmp_path / ("fake_fail_kcc.py" if fail else "fake_kcc.py")
     body = """
 import pathlib
@@ -140,8 +192,14 @@ if {fail!r}:
 out_dir = pathlib.Path(sys.argv[sys.argv.index("-o") + 1])
 source = pathlib.Path(sys.argv[-1])
 out_dir.mkdir(parents=True, exist_ok=True)
-(out_dir / source.with_suffix(".cbz").name).write_bytes(b"converted")
+if {record_source!r}:
+    (out_dir / source.with_suffix(".cbz").name).write_text(str(source))
+else:
+    (out_dir / source.with_suffix(".cbz").name).write_bytes(b"converted")
 """
-    script.write_text(textwrap.dedent(body.format(fail=fail)), encoding="utf-8")
+    script.write_text(
+        textwrap.dedent(body.format(fail=fail, record_source=record_source)),
+        encoding="utf-8",
+    )
     script.chmod(script.stat().st_mode | stat.S_IEXEC)
     return script

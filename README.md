@@ -85,7 +85,7 @@ HOSTED_KCC_LOG_LEVEL=info
 ```powershell
 py -m pip install -e .[dev]
 py -m pytest -v
-py -m hosted_kcc.cli --config ./config/config.toml --once --kcc-command kcc-c2e
+py -m hosted_kcc.cli --config ./config/config.toml --once --kcc-command c2e
 ```
 
 For tests, the suite uses a fake KCC executable, so real manga conversion is not required.

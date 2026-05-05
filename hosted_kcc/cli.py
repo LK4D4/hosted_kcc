@@ -24,8 +24,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--kcc-command",
-        default="kcc-c2e",
-        help="KCC executable to run. Defaults to kcc-c2e.",
+        default="c2e",
+        help="KCC executable to run. Defaults to c2e from the KCC container image.",
     )
     return parser
 

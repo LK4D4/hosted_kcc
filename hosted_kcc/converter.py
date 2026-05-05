@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import shutil
 import subprocess
 import uuid
@@ -19,7 +20,7 @@ class ConversionResult:
 
 
 class Converter:
-    def __init__(self, kcc_command: str | list[str] = "kcc-c2e"):
+    def __init__(self, kcc_command: str | list[str] = "c2e"):
         self.kcc_command = (
             [kcc_command] if isinstance(kcc_command, str) else list(kcc_command)
         )
@@ -32,7 +33,9 @@ class Converter:
     ) -> ConversionResult:
         temp_dir = Path(work_root) / f"kcc-{uuid.uuid4().hex}"
         temp_dir.mkdir(parents=True, exist_ok=False)
-        args = build_kcc_args(conversion, temp_dir, plan.source_path)
+        working_source = temp_dir / plan.source_path.name
+        shutil.copy2(plan.source_path, working_source)
+        args = build_kcc_args(conversion, temp_dir, working_source)
         command = [*self.kcc_command, *args]
         completed = subprocess.run(
             command,
@@ -61,7 +64,7 @@ class Converter:
             )
 
         plan.output_dir.mkdir(parents=True, exist_ok=True)
-        produced.replace(plan.output_path)
+        _move_output(produced, plan.output_path)
         shutil.rmtree(temp_dir, ignore_errors=True)
         return result
 
@@ -90,3 +93,17 @@ def build_kcc_args(
 
 def _tail(value: str, limit: int = 4000) -> str:
     return value[-limit:]
+
+
+def _move_output(source: Path, destination: Path) -> None:
+    try:
+        source.replace(destination)
+    except OSError as exc:
+        if exc.errno != errno.EXDEV:
+            raise
+        temp_destination = destination.with_name(f".{destination.name}.hosted-kcc-tmp")
+        if temp_destination.exists():
+            temp_destination.unlink()
+        shutil.copy2(source, temp_destination)
+        temp_destination.replace(destination)
+        source.unlink()

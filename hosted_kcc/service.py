@@ -24,7 +24,7 @@ class ServiceResult:
 
 def scan_once(
     cfg: AppConfig,
-    kcc_command: str | list[str] = "kcc-c2e",
+    kcc_command: str | list[str] = "c2e",
 ) -> ServiceResult:
     store = JobStore(cfg.paths.database)
     converter = Converter(kcc_command)
@@ -85,7 +85,7 @@ def scan_once(
     return result
 
 
-def run_forever(cfg: AppConfig, kcc_command: str | list[str] = "kcc-c2e") -> None:
+def run_forever(cfg: AppConfig, kcc_command: str | list[str] = "c2e") -> None:
     while True:
         scan_once(cfg, kcc_command=kcc_command)
         time.sleep(cfg.scan.interval_seconds)
