@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,6 +37,8 @@ class _PreparedFile:
     task: _ConversionTask | None = None
     skipped: int = 0
     failed: int = 0
+    skip_reason: str = ""
+    output_dir: Path | None = None
 
 
 def scan_once(
@@ -47,11 +50,17 @@ def scan_once(
     files = discover_files(cfg.paths.input_roots)
     result = ServiceResult(discovered=len(files))
     futures = []
+    skipped_existing_dirs: Counter[Path] = Counter()
 
     with ThreadPoolExecutor(max_workers=max(1, cfg.scan.workers)) as executor:
         for source_path in files:
             prepared = _prepare_file(cfg, store, source_path)
             result = _add(result, skipped=prepared.skipped, failed=prepared.failed)
+            if (
+                prepared.skip_reason == "existing_output"
+                and prepared.output_dir is not None
+            ):
+                skipped_existing_dirs[prepared.output_dir] += 1
             if prepared.task is not None:
                 futures.append(
                     executor.submit(_run_conversion, cfg, store, converter, prepared.task)
@@ -60,6 +69,7 @@ def scan_once(
         for future in as_completed(futures):
             result = _add(result, **future.result().__dict__)
 
+    _log_skipped_existing_outputs(skipped_existing_dirs)
     return result
 
 
@@ -99,12 +109,14 @@ def _prepare_file(cfg: AppConfig, store: JobStore, source_path: Path) -> _Prepar
     if not cfg.output.overwrite and store.should_skip(
         source_path, plan.output_path, fingerprint
     ):
-        logger.info("skipping already converted file: %s", source_path)
         return _PreparedFile(skipped=1)
     if not cfg.output.overwrite and plan.output_path.exists():
         store.mark_skipped(job.id)
-        logger.info("skipping existing output file: %s", plan.output_path)
-        return _PreparedFile(skipped=1)
+        return _PreparedFile(
+            skipped=1,
+            skip_reason="existing_output",
+            output_dir=plan.output_dir,
+        )
 
     return _PreparedFile(
         task=_ConversionTask(
@@ -152,6 +164,11 @@ def _is_stable(path: Path, stability_seconds: int) -> bool:
         return True
     age = time.time() - path.stat().st_mtime
     return age >= stability_seconds
+
+
+def _log_skipped_existing_outputs(skipped_dirs: Counter[Path]) -> None:
+    for output_dir, count in sorted(skipped_dirs.items()):
+        logger.info("%s skipped existing outputs in %s", count, output_dir)
 
 
 def _add(

@@ -58,6 +58,31 @@ def test_scan_once_skips_existing_output_without_prior_job_when_overwrite_false(
     assert job.status == JobStatus.SKIPPED
 
 
+def test_scan_once_summarizes_existing_output_skips_by_directory(tmp_path, caplog):
+    cfg = _config(tmp_path)
+    for chapter in ("001.cbz", "002.cbz"):
+        source = tmp_path / "input" / "Source" / "Series" / chapter
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(b"chapter")
+        output = tmp_path / "output" / "Source" / "Series" / chapter
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_bytes(b"existing-library-file")
+
+    with caplog.at_level("INFO", logger="hosted_kcc.service"):
+        result = scan_once(
+            cfg, kcc_command=[sys.executable, str(_write_fake_kcc(tmp_path))]
+        )
+
+    skip_records = [
+        record for record in caplog.records if "skipped existing outputs" in record.message
+    ]
+
+    assert result == ServiceResult(discovered=2, converted=0, skipped=2, failed=0)
+    assert len(skip_records) == 1
+    assert "2 skipped existing outputs" in skip_records[0].message
+    assert str(tmp_path / "output" / "Source" / "Series") in skip_records[0].message
+
+
 def test_scan_once_records_failed_conversion(tmp_path):
     cfg = _config(tmp_path)
     source = tmp_path / "input" / "Source" / "Series" / "001.cbz"
