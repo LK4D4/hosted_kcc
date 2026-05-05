@@ -14,7 +14,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--config",
-        default="/config/config.toml",
+        default="/data/config.toml",
         help="Path to config.toml. Missing files are generated from defaults/env.",
     )
     parser.add_argument(

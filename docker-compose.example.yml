@@ -6,7 +6,6 @@ services:
     environment:
       TZ: Europe/Zurich
     volumes:
-      - ./config:/config
       - ./data:/data
       - /volume1/data/media/manga/mangas:/input:ro
       - /volume1/docker/suwayomi/local:/output

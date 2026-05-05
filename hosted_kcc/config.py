@@ -85,7 +85,7 @@ def default_config() -> AppConfig:
 
 
 def load_config(
-    config_path: Path = Path("/config/config.toml"),
+    config_path: Path = Path("/data/config.toml"),
     environ: dict[str, str] | None = None,
 ) -> AppConfig:
     env = dict(os.environ if environ is None else environ)

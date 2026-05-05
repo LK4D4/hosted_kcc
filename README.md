@@ -6,10 +6,9 @@ The default container contract is intentionally simple:
 
 - `/input`: read-only source files
 - `/output`: converted files
-- `/config`: generated or user-edited `config.toml`
-- `/data`: SQLite job state and temporary work files
+- `/data`: generated `config.toml`, SQLite job state, and temporary work files
 
-On first run, the service creates `/config/config.toml` from built-in defaults and any `HOSTED_KCC_*` environment variables. After that, the TOML file is the durable config. Environment variables can still override values for a single run.
+On first run, the service creates `/data/config.toml` from built-in defaults and any `HOSTED_KCC_*` environment variables. After that, the TOML file is the durable config. Environment variables can still override values for a single run.
 
 ## Quick Start
 
@@ -19,7 +18,6 @@ services:
     image: ghcr.io/lk4d4/hosted_kcc:latest
     restart: unless-stopped
     volumes:
-      - ./config:/config
       - ./data:/data
       - /path/to/downloads:/input:ro
       - /path/to/optimized:/output
@@ -99,7 +97,7 @@ HOSTED_KCC_LOG_LEVEL=info
 ```powershell
 py -m pip install -e .[dev]
 py -m pytest -v
-py -m hosted_kcc.cli --config ./config/config.toml --once --kcc-command c2e
+py -m hosted_kcc.cli --config ./data/config.toml --once --kcc-command c2e
 ```
 
 For tests, the suite uses a fake KCC executable, so real manga conversion is not required.

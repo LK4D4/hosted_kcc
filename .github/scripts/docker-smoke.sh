@@ -12,7 +12,6 @@ trap cleanup EXIT
 
 mkdir -p \
   "$WORKDIR/bin" \
-  "$WORKDIR/config" \
   "$WORKDIR/data" \
   "$WORKDIR/input/Source/Series" \
   "$WORKDIR/output"
@@ -49,7 +48,6 @@ chmod -R a+rwX "$WORKDIR"
 "$RUNTIME" run --rm \
   --user "$(id -u):$(id -g)" \
   -v "$WORKDIR/bin/c2e:/usr/local/bin/c2e:ro" \
-  -v "$WORKDIR/config:/config" \
   -v "$WORKDIR/data:/data" \
   -v "$WORKDIR/input:/input:ro" \
   -v "$WORKDIR/output:/output" \
@@ -68,5 +66,5 @@ if [ "$(cat "$output")" != "converted" ]; then
   exit 1
 fi
 
-test -f "$WORKDIR/config/config.toml"
+test -f "$WORKDIR/data/config.toml"
 test -f "$WORKDIR/data/hosted-kcc.sqlite3"

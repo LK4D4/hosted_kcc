@@ -32,7 +32,6 @@ services:
       HOSTED_KCC_HQ: "true"
       HOSTED_KCC_OUTPUT_MODE: suwayomi_local
     volumes:
-      - /volume1/docker/hosted-kcc/config:/config
       - /volume1/docker/hosted-kcc/data:/data
       - /volume1/data/media/manga/mangas:/input:ro
       - /volume1/docker/suwayomi/local:/output
