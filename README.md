@@ -35,6 +35,7 @@ The service defaults to:
 - manga style: enabled
 - high quality: enabled
 - size: `824x1648`
+- workers: `1`
 
 The Dockerfile pins the upstream KCC base image by digest for repeatable builds. To test another KCC release or architecture, override `KCC_BASE_IMAGE` at build time.
 
@@ -85,6 +86,8 @@ HOSTED_KCC_LOG_LEVEL=info
 ```
 
 `HOSTED_KCC_INPUT_ROOTS` accepts a comma-separated list. `HOSTED_KCC_EXTRA_ARGS` accepts a shell-like string that is parsed into separate arguments.
+
+`HOSTED_KCC_WORKERS` controls how many KCC conversions can run at the same time. Keep the default `1` for smaller NAS devices; try `2` or `3` only if the host has enough CPU, memory, and disk bandwidth.
 
 ## Local Development
 
