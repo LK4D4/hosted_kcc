@@ -4,7 +4,7 @@
 
 Build a Dockerized watched-folder service for Kindle Comic Converter (KCC) that can replace a Synology cron script. The service watches mounted manga/comic folders, converts new files with KCC, and writes optimized output into a mirrored output tree. It should be usable from Synology Container Manager with bind mounts and environment/config files, without requiring shell cron, Docker socket access, or manual per-file commands.
 
-The first release is automation-first and config-file driven. A Web UI is intentionally deferred until the conversion core is stable.
+The first release is automation-first and TOML config-file driven. A Web UI is intentionally deferred until the conversion core is stable.
 
 ## Non-Goals For MVP
 
@@ -23,7 +23,7 @@ Synology success criteria:
 - Users can mount manga/download folders read-only into `/input`.
 - Users can mount the reader/library destination writable into `/output`.
 - Users can mount persistent app state into `/data`.
-- Users can mount `config.yaml` read-only into `/config/config.yaml`.
+- Users can mount `config.toml` read-only into `/config/config.toml`.
 - The container runs continuously and replaces a scheduled cron script.
 - Logs are useful from Container Manager's log viewer.
 - The default example maps cleanly to common Synology paths such as `/volume1/data/media/manga/mangas` and `/volume1/docker/suwayomi/local`.
@@ -38,7 +38,7 @@ services:
     restart: unless-stopped
     user: "1024:100"
     volumes:
-      - ./config.yaml:/config/config.yaml:ro
+      - ./config.toml:/config/config.toml:ro
       - ./data:/data
       - /volume1/data/media/manga/mangas:/input:ro
       - /volume1/docker/suwayomi/local:/output
@@ -50,7 +50,7 @@ Use a single Python service image that includes the application and a pinned KCC
 
 Main components:
 
-- `Config`: loads and validates `/config/config.yaml`.
+- `Config`: loads and validates `/config/config.toml`.
 - `Scanner`: periodically discovers supported input files.
 - `Planner`: maps source files to mirrored output destinations and conversion settings.
 - `JobStore`: persists job state and fingerprints in SQLite.
@@ -139,38 +139,39 @@ The app should support common KCC settings directly and preserve an `extra_args`
 
 Initial config example:
 
-```yaml
-scan:
-  interval_seconds: 60
-  stability_seconds: 60
-  workers: 1
+```toml
+[scan]
+interval_seconds = 60
+stability_seconds = 60
+workers = 1
 
-paths:
-  input_roots:
-    - /input
-  output_root: /output
-  work_root: /data/work
-  database: /data/hosted-kcc.sqlite3
+[paths]
+input_roots = ["/input"]
+output_root = "/output"
+work_root = "/data/work"
+database = "/data/hosted-kcc.sqlite3"
 
-conversion:
-  format: CBZ
-  manga_style: true
-  hq: true
-  profile: null
-  custom_width: 824
-  custom_height: 1648
-  extra_args: []
+[conversion]
+format = "CBZ"
+manga_style = true
+hq = true
+profile = ""
+custom_width = 824
+custom_height = 1648
+extra_args = []
 
-output:
-  mirror_hierarchy: true
-  overwrite: false
-  source_policy: keep
+[output]
+mirror_hierarchy = true
+overwrite = false
+source_policy = "keep"
 
-logging:
-  level: info
+[logging]
+level = "info"
 ```
 
 `workers` defaults to 1 because KCC is CPU and disk heavy and many NAS devices are resource-constrained. Higher worker counts can be allowed but should be opt-in.
+
+Because TOML has no native `null`, empty string values such as `profile = ""` mean "unset" for optional string settings.
 
 ## Docker Image
 
@@ -181,7 +182,7 @@ The container should:
 - run as a non-root user when possible
 - support UID/GID mapping through Docker `user` or environment variables
 - write only to `/data` and `/output`
-- read config from `/config/config.yaml`
+- read config from `/config/config.toml`
 - produce structured, readable logs on stdout
 
 ## Error Handling
@@ -252,4 +253,3 @@ Manual deployment test:
 - confirm the converted file appears under `/output` with the same relative path
 - restart the container
 - confirm the completed file is not reprocessed
-
