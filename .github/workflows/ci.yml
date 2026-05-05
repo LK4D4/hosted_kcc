@@ -70,7 +70,7 @@ jobs:
         run: hosted-kcc --help
 
   docker:
-    name: Docker build
+    name: Docker smoke
     runs-on: ubuntu-latest
 
     steps:
@@ -79,3 +79,6 @@ jobs:
 
       - name: Build image
         run: docker build -t hosted-kcc:ci .
+
+      - name: Smoke test image
+        run: sh .github/scripts/docker-smoke.sh hosted-kcc:ci
