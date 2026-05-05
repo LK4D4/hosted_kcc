@@ -6,7 +6,7 @@ RUNTIME="${CONTAINER_RUNTIME:-docker}"
 WORKDIR="$(mktemp -d)"
 
 cleanup() {
-  rm -rf "$WORKDIR"
+  rm -rf "$WORKDIR" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -44,8 +44,10 @@ SH
 chmod +x "$WORKDIR/bin/c2e"
 
 printf "chapter" > "$WORKDIR/input/Source/Series/001.cbz"
+chmod -R a+rwX "$WORKDIR"
 
 "$RUNTIME" run --rm \
+  --user "$(id -u):$(id -g)" \
   -v "$WORKDIR/bin/c2e:/usr/local/bin/c2e:ro" \
   -v "$WORKDIR/config:/config" \
   -v "$WORKDIR/data:/data" \
