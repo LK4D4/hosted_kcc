@@ -1,21 +1,19 @@
-version: "3.8"
-
 services:
   suwayomi:
     image: ghcr.io/suwayomi/suwayomi-server:stable
     container_name: suwayomi
-    user: "1027:65536"
+    user: "${PUID:?set PUID}:${PGID:?set PGID}"
     environment:
-      TZ: Europe/Zurich
+      TZ: "${TZ:?set TZ}"
       AUTH_MODE: basic_auth
-      AUTH_USERNAME: user
-      AUTH_PASSWORD: password
+      AUTH_USERNAME: "${SUWAYOMI_AUTH_USERNAME:?set SUWAYOMI_AUTH_USERNAME}"
+      AUTH_PASSWORD: "${SUWAYOMI_AUTH_PASSWORD:?set SUWAYOMI_AUTH_PASSWORD}"
     volumes:
-      - /volume1/data/media/manga:/home/suwayomi/.local/share/Tachidesk/downloads
-      - /volume1/docker/suwayomi:/home/suwayomi/.local/share/Tachidesk
+      - "${SUWAYOMI_DOWNLOADS_DIR:?set SUWAYOMI_DOWNLOADS_DIR}:/home/suwayomi/.local/share/Tachidesk/downloads"
+      - "${SUWAYOMI_DATA_DIR:?set SUWAYOMI_DATA_DIR}:/home/suwayomi/.local/share/Tachidesk"
     ports:
-      - "4567:4567"
-    network_mode: synobridge
+      - "${SUWAYOMI_PORT:?set SUWAYOMI_PORT}:4567"
+    network_mode: "${DOCKER_NETWORK_MODE:?set DOCKER_NETWORK_MODE}"
     security_opt:
       - no-new-privileges:true
     restart: always
@@ -23,19 +21,15 @@ services:
   hosted-kcc:
     image: ghcr.io/lk4d4/hosted_kcc:latest
     container_name: hosted-kcc
-    user: "1027:65536"
+    user: "${PUID:?set PUID}:${PGID:?set PGID}"
     environment:
-      TZ: Europe/Zurich
-      HOSTED_KCC_CUSTOM_WIDTH: "824"
-      HOSTED_KCC_CUSTOM_HEIGHT: "1648"
-      HOSTED_KCC_MANGA_STYLE: "true"
-      HOSTED_KCC_HQ: "true"
+      TZ: "${TZ:?set TZ}"
       HOSTED_KCC_OUTPUT_MODE: suwayomi_local
     volumes:
-      - /volume1/docker/hosted-kcc/data:/data
-      - /volume1/data/media/manga/mangas:/input:ro
-      - /volume1/docker/suwayomi/local:/output
-    network_mode: synobridge
+      - "${HOSTED_KCC_DATA_DIR:?set HOSTED_KCC_DATA_DIR}:/data"
+      - "${HOSTED_KCC_INPUT_DIR:?set HOSTED_KCC_INPUT_DIR}:/input:ro"
+      - "${HOSTED_KCC_OUTPUT_DIR:?set HOSTED_KCC_OUTPUT_DIR}:/output"
+    network_mode: "${DOCKER_NETWORK_MODE:?set DOCKER_NETWORK_MODE}"
     security_opt:
       - no-new-privileges:true
     restart: always

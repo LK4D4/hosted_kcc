@@ -1,0 +1,14 @@
+.git
+.github
+.pytest_cache
+.ruff_cache
+.worktrees
+__pycache__
+*.pyc
+*.sqlite3
+*.db
+build
+dist
+*.egg-info
+docs
+tests

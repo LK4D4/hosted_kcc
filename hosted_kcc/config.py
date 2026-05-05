@@ -241,7 +241,7 @@ def _validate(cfg: AppConfig) -> None:
     if cfg.output.mode not in {"mirror", "suwayomi_local"}:
         raise ConfigError("output.mode must be 'mirror' or 'suwayomi_local'")
     if cfg.output.source_policy != "keep":
-        raise ConfigError("output.source_policy must be 'keep' for the MVP")
+        raise ConfigError("output.source_policy must be 'keep'")
     if cfg.scan.interval_seconds < 1:
         raise ConfigError("scan.interval_seconds must be greater than 0")
     if cfg.scan.stability_seconds < 0:

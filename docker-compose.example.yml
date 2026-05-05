@@ -2,12 +2,13 @@ services:
   hosted-kcc:
     image: ghcr.io/lk4d4/hosted_kcc:latest
     container_name: hosted-kcc
+    user: "${PUID:?set PUID}:${PGID:?set PGID}"
     restart: unless-stopped
     environment:
-      TZ: Europe/Zurich
+      TZ: "${TZ:?set TZ}"
     volumes:
-      - ./data:/data
-      - /volume1/data/media/manga/mangas:/input:ro
-      - /volume1/docker/suwayomi/local:/output
+      - "${HOSTED_KCC_DATA_DIR:?set HOSTED_KCC_DATA_DIR}:/data"
+      - "${HOSTED_KCC_INPUT_DIR:?set HOSTED_KCC_INPUT_DIR}:/input:ro"
+      - "${HOSTED_KCC_OUTPUT_DIR:?set HOSTED_KCC_OUTPUT_DIR}:/output"
     security_opt:
       - no-new-privileges:true
