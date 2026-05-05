@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  suwayomi:
+    image: ghcr.io/suwayomi/suwayomi-server:stable
+    container_name: suwayomi
+    user: "1027:65536"
+    environment:
+      TZ: Europe/Zurich
+      AUTH_MODE: basic_auth
+      AUTH_USERNAME: user
+      AUTH_PASSWORD: password
+    volumes:
+      - /volume1/data/media/manga:/home/suwayomi/.local/share/Tachidesk/downloads
+      - /volume1/docker/suwayomi:/home/suwayomi/.local/share/Tachidesk
+    ports:
+      - "4567:4567"
+    network_mode: synobridge
+    security_opt:
+      - no-new-privileges:true
+    restart: always
+
+  hosted-kcc:
+    image: hosted-kcc:latest
+    build: .
+    container_name: hosted-kcc
+    user: "1027:65536"
+    environment:
+      TZ: Europe/Zurich
+      HOSTED_KCC_CUSTOM_WIDTH: "824"
+      HOSTED_KCC_CUSTOM_HEIGHT: "1648"
+      HOSTED_KCC_MANGA_STYLE: "true"
+      HOSTED_KCC_HQ: "true"
+      HOSTED_KCC_OUTPUT_MODE: suwayomi_local
+    volumes:
+      - /volume1/docker/hosted-kcc/config:/config
+      - /volume1/docker/hosted-kcc/data:/data
+      - /volume1/data/media/manga/mangas:/input:ro
+      - /volume1/docker/suwayomi/local:/output
+    network_mode: synobridge
+    security_opt:
+      - no-new-privileges:true
+    restart: always

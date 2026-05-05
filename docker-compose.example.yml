@@ -1,0 +1,15 @@
+services:
+  hosted-kcc:
+    image: hosted-kcc:latest
+    build: .
+    container_name: hosted-kcc
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Zurich
+    volumes:
+      - ./config:/config
+      - ./data:/data
+      - /volume1/data/media/manga/mangas:/input:ro
+      - /volume1/docker/suwayomi/local:/output
+    security_opt:
+      - no-new-privileges:true

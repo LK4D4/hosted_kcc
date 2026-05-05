@@ -1,0 +1,27 @@
+[scan]
+interval_seconds = 60
+stability_seconds = 60
+workers = 1
+
+[paths]
+input_roots = ["/input"]
+output_root = "/output"
+work_root = "/data/work"
+database = "/data/hosted-kcc.sqlite3"
+
+[conversion]
+format = "CBZ"
+manga_style = true
+hq = true
+profile = ""
+custom_width = 824
+custom_height = 1648
+extra_args = []
+
+[output]
+mode = "mirror"
+overwrite = false
+source_policy = "keep"
+
+[logging]
+level = "info"
