@@ -16,8 +16,7 @@ On first run, the service creates `/config/config.toml` from built-in defaults a
 ```yaml
 services:
   hosted-kcc:
-    image: hosted-kcc:latest
-    build: .
+    image: ghcr.io/lk4d4/hosted_kcc:latest
     restart: unless-stopped
     volumes:
       - ./config:/config
@@ -38,6 +37,12 @@ The service defaults to:
 - workers: `1`
 
 The Dockerfile pins the upstream KCC base image by digest for repeatable builds. To test another KCC release or architecture, override `KCC_BASE_IMAGE` at build time.
+
+Published images are available from GitHub Container Registry:
+
+```text
+ghcr.io/lk4d4/hosted_kcc:latest
+```
 
 ## Safety Model
 

@@ -21,8 +21,7 @@ services:
     restart: always
 
   hosted-kcc:
-    image: hosted-kcc:latest
-    build: .
+    image: ghcr.io/lk4d4/hosted_kcc:latest
     container_name: hosted-kcc
     user: "1027:65536"
     environment:
